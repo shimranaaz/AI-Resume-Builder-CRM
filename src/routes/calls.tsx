@@ -204,17 +204,36 @@ function LogCallDialog({ open, onOpenChange, onSubmit }: {
 }) {
   const { leads } = useCrm();
   const [leadId, setLeadId] = useState("");
+  const [leadName, setLeadName] = useState("");
+  const [leadSearch, setLeadSearch] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
   const [callDate, setCallDate] = useState(() => new Date().toISOString().slice(0, 16));
   const [duration, setDuration] = useState(10);
   const [outcome, setOutcome] = useState<CallOutcome>("Interested");
   const [remarks, setRemarks] = useState("");
   const [nextFollowUp, setNextFollowUp] = useState("");
 
-  // Show next follow-up date only for outcomes that need it
   const showFollowUpDate = NEEDS_FOLLOW_UP.includes(outcome);
+
+  const filteredLeads = useMemo(
+    () => leads.filter((l) =>
+      l.name.toLowerCase().includes(leadSearch.toLowerCase())
+    ),
+    [leads, leadSearch]
+  );
+
+  const handleSelectLead = (id: string, name: string) => {
+    setLeadId(id);
+    setLeadName(name);
+    setLeadSearch(name);
+    setShowDropdown(false);
+  };
 
   const handleClose = () => {
     setLeadId("");
+    setLeadName("");
+    setLeadSearch("");
+    setShowDropdown(false);
     setCallDate(new Date().toISOString().slice(0, 16));
     setDuration(10);
     setOutcome("Interested");
@@ -225,10 +244,7 @@ function LogCallDialog({ open, onOpenChange, onSubmit }: {
 
   const handleOutcomeChange = (val: CallOutcome) => {
     setOutcome(val);
-    // Clear follow-up date when switching to outcome that doesn't need it
-    if (!NEEDS_FOLLOW_UP.includes(val)) {
-      setNextFollowUp("");
-    }
+    if (!NEEDS_FOLLOW_UP.includes(val)) setNextFollowUp("");
   };
 
   return (
@@ -250,13 +266,58 @@ function LogCallDialog({ open, onOpenChange, onSubmit }: {
             nextFollowUp: showFollowUpDate && nextFollowUp ? nextFollowUp : undefined,
           });
         }}>
-          <label className="grid gap-1.5">
+          <div className="grid gap-1.5">
             <span className="text-xs font-medium">Lead *</span>
-            <select required value={leadId} onChange={(e) => setLeadId(e.target.value)} className={inputCls}>
-              <option value="">Select a lead…</option>
-              {leads.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </label>
+
+            {/* Searchable lead picker */}
+            <div className="relative">
+              <div className="relative">
+                <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search leads by name…"
+                  value={leadSearch}
+                  onChange={(e) => {
+                    setLeadSearch(e.target.value);
+                    setLeadId("");
+                    setShowDropdown(true);
+                  }}
+                  onFocus={() => setShowDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                  className={`${inputCls} pl-8`}
+                />
+                {leadId && (
+                  <i className="fa-solid fa-circle-check absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-xs pointer-events-none" />
+                )}
+              </div>
+
+              {/* Dropdown results */}
+              {showDropdown && (
+                <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-background shadow-lg max-h-48 overflow-y-auto">
+                  {filteredLeads.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">No leads found</div>
+                  ) : (
+                    filteredLeads.map((l) => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onMouseDown={() => handleSelectLead(l.id, l.name)}
+                        className={`w-full px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
+                          leadId === l.id ? "bg-primary/10 font-medium text-primary" : ""
+                        }`}
+                      >
+                        {l.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Hidden required input to enforce lead selection */}
+            <input type="text" required value={leadId} onChange={() => {}} className="sr-only" tabIndex={-1} />
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1.5">
               <span className="text-xs font-medium">Call Date</span>
@@ -267,6 +328,7 @@ function LogCallDialog({ open, onOpenChange, onSubmit }: {
               <input type="number" min={1} value={duration} onChange={(e) => setDuration(Number(e.target.value))} className={inputCls} />
             </label>
           </div>
+
           <label className="grid gap-1.5">
             <span className="text-xs font-medium">Outcome</span>
             <select value={outcome} onChange={(e) => handleOutcomeChange(e.target.value as CallOutcome)} className={inputCls}>
@@ -274,7 +336,6 @@ function LogCallDialog({ open, onOpenChange, onSubmit }: {
             </select>
           </label>
 
-          {/* Only show Next Follow Up Date for Interested or Call Back Later */}
           {showFollowUpDate && (
             <label className="grid gap-1.5">
               <span className="text-xs font-medium">Next Follow Up Date</span>
@@ -293,6 +354,7 @@ function LogCallDialog({ open, onOpenChange, onSubmit }: {
             <textarea rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)}
               className={`${inputCls} resize-none py-2`} placeholder="Summary, next step…" />
           </label>
+
           <DialogFooter>
             <button type="button" onClick={handleClose}
               className="inline-flex h-10 items-center rounded-lg border border-border bg-background px-4 text-sm font-medium hover:bg-muted">
