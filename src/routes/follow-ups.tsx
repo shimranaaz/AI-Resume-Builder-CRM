@@ -18,7 +18,13 @@ export const Route = createFileRoute("/follow-ups")({
 
 type FilterType = "all" | "overdue" | "today" | "tomorrow" | "upcoming";
 
-const NEEDS_FOLLOW_UP: CallOutcome[] = ["Interested", "Call Back Later"];
+// (any outcome where the lead isn't fully closed needs a reminder date)
+const NEEDS_FOLLOW_UP: CallOutcome[] = [
+  "Interested",
+  "Call Back Later",
+  "Busy",
+  "No Answer",
+];
 
 function FollowUps() {
 const { leads, calls, updateLead, addCall } = useCrm();

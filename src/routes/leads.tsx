@@ -6,7 +6,7 @@ import { SourceBadge, StatusBadge } from "@/components/status-badge";
 import { LeadFormDialog } from "@/components/lead-form-dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useCrm } from "@/hooks/use-crm";
-import { fmtDate } from "@/utils/format";
+import { fmtDate, isSameDay } from "@/utils/format";
 import { LEAD_SOURCES, LEAD_STATUSES, type Lead, type LeadSource, type LeadStatus } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -25,20 +25,33 @@ const PAGE_SIZE = 8;
 function LeadsPage() {
   const { leads, addLead, updateLead, deleteLead } = useCrm();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<LeadStatus | "All">("All");
+const [statusFilter, setStatusFilter] = useState<LeadStatus | "All">("All");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "All">("All");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Lead | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // leads are already sorted newest first from use-crm
+ // leads are already sorted newest first from use-crm
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const newLeadStats = useMemo(() => ({
+    today: leads.filter((l) => isSameDay(new Date(l.createdAt), now)).length,
+    yesterday: leads.filter((l) => isSameDay(new Date(l.createdAt), yesterday)).length,
+  }), [leads]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return leads.filter((l) => {
       if (statusFilter !== "All" && l.status !== statusFilter) return false;
       if (sourceFilter !== "All" && l.source !== sourceFilter) return false;
+      if (fromDate && new Date(l.createdAt) < new Date(fromDate)) return false;
+      if (toDate && new Date(l.createdAt) > new Date(toDate + "T23:59:59")) return false;
       if (!q) return true;
       return (
         l.name.toLowerCase().includes(q) ||
@@ -46,8 +59,7 @@ function LeadsPage() {
         l.mobile.toLowerCase().includes(q)
       );
     });
-  }, [leads, query, statusFilter, sourceFilter]);
-
+  }, [leads, query, statusFilter, sourceFilter, fromDate, toDate]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -107,8 +119,58 @@ function LeadsPage() {
     }
   };
 
-  return (
+return (
     <div className="space-y-5">
+      {/* New Leads Stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Today's New Leads</p>
+          <p className="text-xl font-semibold">{newLeadStats.today}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Yesterday's New Leads</p>
+          <p className="text-xl font-semibold">{newLeadStats.yesterday}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Leads</p>
+          <p className="text-xl font-semibold">{leads.length}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Filtered Results</p>
+          <p className="text-xl font-semibold">{filtered.length}</p>
+        </div>
+      </div>
+
+      {/* Date Range Filter */}
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center">
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-xs font-medium text-muted-foreground">From</span>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-primary"
+          />
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-xs font-medium text-muted-foreground">To</span>
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="h-9 rounded-lg border border-border bg-background px-2 text-sm outline-none focus:border-primary"
+          />
+        </label>
+        {(fromDate || toDate) && (
+          <button
+            onClick={() => { setFromDate(""); setToDate(""); }}
+            className="h-9 rounded-lg border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted"
+          >
+            Clear dates
+          </button>
+        )}
+      </div>
+
       {/* Toolbar */}
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 md:flex-row md:items-center">
         <div className="relative flex-1">

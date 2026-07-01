@@ -18,10 +18,18 @@ const CallSchema = new Schema<ICall>(
     },
     callDate: { type: Date, required: true, default: Date.now },
     duration: { type: Number, required: true, min: 0 },
-    outcome: {
+outcome: {
       type: String,
       required: true,
-      enum: ["Interested", "Busy", "No Answer", "Call Back Later", "Not Interested"],
+      enum: [
+        "Interested",
+        "Busy",
+        "No Answer",
+        "Call Back Later",
+        "Not Interested",
+        "Closed Won",
+        "Closed Lost",
+      ],
     },
     remarks: { type: String, trim: true },
     nextFollowUp: { type: Date },

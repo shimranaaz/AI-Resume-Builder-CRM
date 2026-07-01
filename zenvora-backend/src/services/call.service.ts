@@ -37,10 +37,13 @@ export const createCall = async (data: any) => {
   } else if (data.outcome === "Not Interested") {
     leadUpdate.$set.status = "Called";
     leadUpdate.$set.nextFollowUp = null;
-  } else {
-    // Busy, No Answer — just update status to Called if not already progressed
-    leadUpdate.$set.status = "Called";
+} else {
+  // Busy, No Answer — update status, and carry the follow-up date forward
+  leadUpdate.$set.status = "Called";
+  if (data.nextFollowUp) {
+    leadUpdate.$set.nextFollowUp = new Date(data.nextFollowUp);
   }
+}
 
   await Lead.findByIdAndUpdate(data.leadId, leadUpdate);
   await createAuditLog("Call Logged", data.leadId);

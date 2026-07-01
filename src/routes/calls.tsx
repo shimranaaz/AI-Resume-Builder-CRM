@@ -24,7 +24,13 @@ export const Route = createFileRoute("/calls")({
 });
 
 // Outcomes that require a follow-up date
-const NEEDS_FOLLOW_UP: CallOutcome[] = ["Interested", "Call Back Later"];
+// (any outcome where the lead isn't fully closed needs a reminder date)
+const NEEDS_FOLLOW_UP: CallOutcome[] = [
+  "Interested",
+  "Call Back Later",
+  "Busy",
+  "No Answer",
+];
 
 function CallsPage() {
   const { calls, leads, addCall, deleteCall } = useCrm();
